@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Bluecap</vendor>
+  <vendor_url>https://github.com/kirbyfan64/bluecap</vendor_url>
+
+  <action id="com.refi64.Bluecap.create">
+    <description>Create a new capsule</description>
+    <message>Authentication is required to create a new capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-create</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.delete">
+    <description>Delete a capsule</description>
+    <message>Authentication is required to delete a capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-delete</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.modify">
+    <description>Modify a capsule</description>
+    <message>Authentication is required to modify a capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-modify</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.persistence">
+    <description>Modify a capsule's persistence</description>
+    <message>Authentication is required to modify a capsule's persistence</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-persistence</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.run">
+    <description>Run a capsule</description>
+    <message>Authentication is required to run an untrusted capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-run</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.trust">
+    <description>Trust a capsule</description>
+    <message>Authentication is required to trust a capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-trust</annotate>
+  </action>
+
+  <action id="com.refi64.Bluecap.untrust">
+    <description>Trust a capsule</description>
+    <message>Authentication is required to untrust a capsule</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-untrust</annotate>
+  </action>
+</policyconfig>
