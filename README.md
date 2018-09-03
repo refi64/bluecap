@@ -20,6 +20,31 @@ the most powerful/general-purpose...but hey, it works!
 That being said, note that this may have security issues when trusted containers!! If you'd
 rather not risk it, don't use `bluecap trust`.
 
+## Installation
+
+### Fedora Workstation
+
+```bash
+dnf copr enable refi64/bluecap
+dnf install bluecap
+```
+
+### Fedora Silverblue
+
+You can install `dnf` and then run:
+
+```bash
+dnf copr enable refi64/bluecap
+rpm-ostree install bluecap
+```
+
+Otherwise, you can add the repo manually:
+
+```bash
+curl -L "https://copr.fedorainfracloud.org/coprs/refi64/bluecap/repo/fedora-`lsb_release -rs`/refi64-bluecap-fedora-`lsb_release -rs`.repo" | sudo tee /etc/yum.repos.d/_copr_refi64-bluecap.repo
+rpm-ostree install bluecap
+```
+
 ## Examples
 
 ```bash
