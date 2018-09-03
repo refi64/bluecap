@@ -29,6 +29,18 @@
     <annotate key="org.freedesktop.policykit.exec.argv1">internal-delete</annotate>
   </action>
 
+  <action id="com.refi64.Bluecap.export">
+    <description>Export a capsule's commands</description>
+    <message>Authentication is required to manage capsule exports</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">internal-export</annotate>
+  </action>
+
   <action id="com.refi64.Bluecap.modify">
     <description>Modify a capsule</description>
     <message>Authentication is required to modify a capsule</message>
