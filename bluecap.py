@@ -228,7 +228,7 @@ def internal_run(capsule, command):
 
 
 def redirect(action, *args):
-    run(['pkexec', os.path.abspath(__file__), action.value, *args])
+    run(['pkexec', '/usr/bin/bluecap', action.value, *args])
 
 
 def exec_create(args):
