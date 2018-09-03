@@ -178,7 +178,7 @@ def internal_export(capsule, prefix, command):
 
     contents = EXPORT_FILE.replace('<NAME>', prefix + capsule).replace('<COMMAND>', command)
 
-    with (exports / command).open('w') as fp:
+    with (exports / os.path.basename(command)).open('w') as fp:
         fp.write(contents)
         os.fchmod(fp.fileno(), 0o755)
 
