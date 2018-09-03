@@ -101,7 +101,14 @@ def internal_create(name, image):
 
 def internal_delete(name):
     target = get_capsule_path(name)
+    if not target.exists():
+        sys.exit('Invalid capsule.')
+
     target.unlink()
+
+    persistence = GLOBAL_STORAGE / 'persistence' / name
+    if persistence.exists():
+        shutil.rmtree(persistence)
 
 
 def internal_modify(path, nadd, *args):
@@ -154,7 +161,7 @@ def internal_persistence(path, nadd, *args):
         location = persistence_path(capsule, unpersist)
         modify_remove.append(f'volume={location}:{unpersist}:Z')
         if location.exists():
-            shutil.rmtree(str(location))
+            shutil.rmtree(location)
 
     internal_modify(path, len(modify_add), *modify_add, *modify_remove)
 

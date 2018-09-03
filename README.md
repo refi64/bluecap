@@ -43,6 +43,13 @@ $ bluecap persistence -a '/home/cappy/.pub-cache'
 $ bluecap persistence -r '/home/cappy/.pub-cache'
 # Run it!
 $ bluecap run dart echo '123'
+# Export a command from inside the capsule
+$ bluecap export dart pub
+# Now we can do:
+$ export PATH="$PATH:/var/lib/bluecap/exports/bin"
+$ pub -h  # Same as 'bluecap run dart pub -h'
+# Exports can be removed via a simple rm
+$ sudo rm /var/lib/bluecap/exports/bin/pub
 # Delete the capsule
 $ bluecap delete dart
 ```
