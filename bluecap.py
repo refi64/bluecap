@@ -250,7 +250,7 @@ def internal_run(capsule, cwd, command):
                         f'--workdir=/var/work/{cwd.name}'))
 
     os.execvp('podman', ['podman', 'run', '--rm', *options, image, 'sh', '-c',
-                         'useradd cappy -u 1000 && exec su -c "env PATH=\'$PATH\' $0" cappy',
+                         'useradd cappy -o -u 1000 && exec su -c "env PATH=\'$PATH\' $0" cappy',
                          command])
 
 
