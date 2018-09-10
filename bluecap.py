@@ -78,7 +78,7 @@ def run(command):
 
 
 def internal_create(name, image):
-    run(['podman', 'pull', image])
+    run(['podman', 'run', '--rm', image, 'true'])
 
     defaults_file = ETC_STORAGE / 'defaults.json'
     defaults = []
