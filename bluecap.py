@@ -250,7 +250,8 @@ def internal_run(capsule, cwd, command):
                         f'--workdir=/var/work/{cwd.name}'))
 
     os.execvp('podman', ['podman', 'run', '--rm', *options, image, 'sh', '-c',
-                         'useradd cappy -o -u 1000 && exec su -c "env PATH=\'$PATH\' $0" cappy',
+                         'useradd cappy -o -u 1000 && '
+                         'exec su --login -c "env PATH=\'$PATH\' $0" cappy',
                          command])
 
 
@@ -276,6 +277,7 @@ def run_exported_internal(capsule, export, *args):
 
 def redirect(action, *args):
     run(['pkexec', '/usr/bin/bluecap', action.value, *args])
+    # run(['pkexec', os.path.abspath(__file__), action.value, *args])
 
 
 def exec_create(args):
