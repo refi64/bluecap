@@ -1,5 +1,6 @@
 Name:           bluecap
-Version:        0.1
+#Version:        0.1
+Version:        master
 Release:        1%{?dist}
 Summary:        A lightweight wrapper over podman for container workflows
 
@@ -34,7 +35,7 @@ mkdir -p %{buildroot}/%{_datadir}/polkit-1/actions
 mkdir -p %{buildroot}/%{_sysconfdir}/bluecap
 
 cat > %{buildroot}/%{_bindir}/%{name} <<-'EOF'
-#!/bin/bash
+#!/usr/bin/bash
 BLUECAP_REDIRECT_USRBIN=1 /usr/bin/python3 %{_prefix}/lib/%{name}/%{name}.pyc "$@"
 EOF
 
