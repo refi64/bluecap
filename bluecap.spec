@@ -1,6 +1,6 @@
 Name:           bluecap
-#Version:        0.1
-Version:        master
+Version:        0.2
+#Version:        master
 Release:        1%{?dist}
 Summary:        A lightweight wrapper over podman for container workflows
 
