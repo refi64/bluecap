@@ -35,7 +35,7 @@ mkdir -p %{buildroot}/%{_sysconfdir}/bluecap
 
 cat > %{buildroot}/%{_bindir}/%{name} <<-'EOF'
 #!/bin/bash
-/usr/bin/python3 %{_prefix}/lib/%{name}/%{name}.pyc "$@"
+BLUECAP_REDIRECT_USRBIN=1 /usr/bin/python3 %{_prefix}/lib/%{name}/%{name}.pyc "$@"
 EOF
 
 chmod 0755 %{buildroot}/%{_bindir}/%{name}

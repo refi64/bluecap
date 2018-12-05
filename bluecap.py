@@ -71,7 +71,7 @@ def resolve_capsule_name(capsule):
     return path.with_suffix('').name
 
 
-def run(command):
+def run(command, **kw):
     result = subprocess.run(command)
     if result.returncode:
         sys.exit(result.returncode)
@@ -153,13 +153,13 @@ def internal_persistence(path, nadd, *args):
 
     for persist in add:
         location = persistence_path(capsule, persist)
-        modify_add.append(f'volume={location}:{persist}:Z')
+        modify_add.append(f'volume={location}:{persist}')
         location.mkdir(exist_ok=True, parents=True)
-        os.chown(location, 1000, 1000)
+        os.chown(location, os.getuid(), os.getuid())
 
     for unpersist in remove:
         location = persistence_path(capsule, unpersist)
-        modify_remove.append(f'volume={location}:{unpersist}:Z')
+        modify_remove.append(f'volume={location}:{unpersist}')
         if location.exists():
             shutil.rmtree(location)
 
@@ -244,15 +244,18 @@ def internal_run(capsule, cwd, command):
     image = capsule['image']
     options = [f'--{opt}' for opt in capsule['options']]
 
-    if cwd != '':
-        cwd = Path(cwd)
-        options.extend((f'--volume={cwd}:/var/work/{cwd.name}:Z',
-                        f'--workdir=/var/work/{cwd.name}'))
+    try:
+        cwd = Path(cwd).relative_to(Path('/home').resolve())
+    except ValueError:
+        sys.exit('Cannot run outside your home directory.')
 
-    os.execvp('podman', ['podman', 'run', '--rm', *options, image, 'sh', '-c',
-                         'useradd cappy -o -u 1000 && '
-                         'exec su --login -c "env PATH=\'$PATH\' $0" cappy',
-                         command])
+    podman = ['podman', 'run', '--security-opt=label=disable', '--volume=/home:/run/home',
+              f'--workdir=/run/home/{cwd}', '--rm', *options, image, 'sh', '-c',
+              f'useradd cappy -o -u 1000 && '
+              'exec su --login -c "cd `pwd`; env PATH=\'$PATH\' $0" cappy',
+               command]
+    # print(' '.join(map(shlex.quote, podman)))
+    os.execvp('podman', podman)
 
 
 def run_exported_internal(capsule, export, *args):
@@ -265,19 +268,19 @@ def run_exported_internal(capsule, export, *args):
             sys.exit('Invalid export file.')
 
     command = [line, *args]
-
-    if capsule.startswith('.'):
-        cwd = Path().resolve()
-        capsule = capsule[1:]
-    else:
-        cwd = ''
-
-    redirect(Action.RUN, resolve_capsule_name(capsule), cwd, ' '.join(map(shlex.quote, command)))
+    redirect(Action.RUN, resolve_capsule_name(capsule), Path().resolve(),
+             ' '.join(map(shlex.quote, command)))
 
 
 def redirect(action, *args):
-    run(['pkexec', '/usr/bin/bluecap', action.value, *args])
-    # run(['pkexec', os.path.abspath(__file__), action.value, *args])
+    if os.getuid() != 0:
+        if 'BLUECAP_REDIRECT_USRBIN' in os.environ:
+            runner = '/usr/bin/bluecap'
+        else:
+            runner = Path(__file__).absolute()
+        run(['pkexec', runner, action.value, *args])
+    else:
+        main([sys.argv[0], action.value, *args])
 
 
 def exec_create(args):
@@ -346,20 +349,15 @@ def exec_export(args):
 
 
 def exec_run(args):
-    if args.capsule == '.':
-        cwd = Path().resolve()
-    else:
-        cwd = ''
-
-    redirect(Action.RUN, resolve_capsule_name(args.capsule), cwd,
+    redirect(Action.RUN, resolve_capsule_name(args.capsule), Path().resolve(),
              ' '.join(map(shlex.quote, args.command)))
 
 
-def main():
-    if len(sys.argv) > 1:
-        if sys.argv[1].startswith('internal-'):
-            action = Action(sys.argv[1])
-            args = sys.argv[2:]
+def main(argv):
+    if len(argv) > 1:
+        if argv[1].startswith('internal-'):
+            action = Action(argv[1])
+            args = argv[2:]
             if action == Action.CREATE:
                 internal_create(*args)
             elif action == Action.DELETE:
@@ -378,8 +376,8 @@ def main():
                 sys.exit('Invalid internal capsule command.')
 
             return
-        elif sys.argv[1].startswith('run-exported-internal:'):
-            run_exported_internal(sys.argv[1].split(':', 1)[1], *sys.argv[2:])
+        elif argv[1].startswith('run-exported-internal:'):
+            run_exported_internal(argv[1].split(':', 1)[1], *argv[2:])
             return
 
     parser = argparse.ArgumentParser()
@@ -444,4 +442,4 @@ def main():
     args.func(args)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
