@@ -47,6 +47,8 @@ rpm-ostree install bluecap
 
 ## Examples
 
+**NOTE:** This is for the 0.3 alpha. For v0.2, see the README on that Git tag.
+
 ```bash
 # Create a new capsule
 $ bluecap create dart google/dart
@@ -57,17 +59,19 @@ $ bluecap trust dart
 # Same as above (since we linked it)
 $ bluecap trust .
 # Untrust it
-$ bluecap untrust dart
+$ bluecap trust -u dart
 # Set run default options (same as podman run arguments, but without --)
 $ bluecap options-modify . 'tmpfs=/my-tmp'
 # Show all options
 $ bluecap options-dump .
+# Remove an option
+$ bluecap options-modify -r dart 'net=host'
 # Persist the given directory
-$ bluecap persistence -a '/home/cappy/.pub-cache'
+$ bluecap persistence '/var/data/.pub-cache'
 # Remove it
-$ bluecap persistence -r '/home/cappy/.pub-cache'
+$ bluecap persistence -r '/var/data/.pub-cache'
 # Run it!
-$ bluecap run dart echo '123'
+$ bluecap run dart echo -e '1\n2\n3'
 # Export a command from inside the capsule
 $ bluecap export dart pub
 # Now we can do:
@@ -77,4 +81,6 @@ $ pub -h  # Same as 'bluecap run dart pub -h'
 $ sudo rm /var/lib/bluecap/exports/bin/pub
 # Delete the capsule
 $ bluecap delete dart
+# Delete the capsule, but keep its persisted files (/var/lib/bluecap/persistence/CAPSULE-NAME)
+$ bluecap delete -k dart
 ```
