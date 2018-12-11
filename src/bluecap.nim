@@ -530,7 +530,10 @@ proc runCapsule(capsule, command: string) =
   let cwd = getCurrentDir()
   checkUnderHome cwd, getOriginalHome()
 
-  let capsuleInfo = resolveCapsuleInfo(capsule, shouldExist = true)
+  let capsuleInfo =
+    # Directly run an image.
+    if capsule.startsWith '@': CapsuleInfo(name: capsule, path: "")
+    else: resolveCapsuleInfo(capsule, shouldExist = true)
   suAction Action.SuRun, @[capsuleInfo.name, cwd, command]
 
 proc runExportedInternal() =
@@ -568,9 +571,6 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   p.next
   var command = p.key
 
-  let capsuleInfo = resolveCapsuleInfo(capsule, shouldExist = true)
-  let capsuleJson = parseFile(capsuleInfo.path).to CapsuleJson
-
   let persistenceRoot = getPersistenceRoot capsule
 
   let uuid = ($genUUID())[0..7]
@@ -585,10 +585,20 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
 
-  args.add capsuleJson.options.mapIt(string, "--" & it)
-  args.add capsuleJson.persistence.mapIt(string, fmt"--volume={persistenceRoot / it}:{it}")
+  if capsule.startsWith '@':
+    # Directly run an image.
+    let defaultsJson = parseFile(EtcDefaultsJsonPath).to DefaultsJson
 
-  args.add capsuleJson.image
+    args.add defaultsJson.options.mapIt(string, "--" & it)
+    args.add capsule[1..^1]
+  else:
+    let capsuleInfo = resolveCapsuleInfo(capsule, shouldExist = true)
+    let capsuleJson = parseFile(capsuleInfo.path).to CapsuleJson
+
+    args.add capsuleJson.options.mapIt(string, "--" & it)
+    args.add capsuleJson.persistence.mapIt(string, fmt"--volume={persistenceRoot / it}:{it}")
+
+    args.add capsuleJson.image
   args.add parseCmdLine(command)
 
   replaceProcess("podman", args = args)
