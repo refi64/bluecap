@@ -179,11 +179,13 @@ proc replaceProcess(command: string, args: seq[string]) =
   die fmt"execvp failed: {strerror(errno)}"
 
 proc getOriginalUid(): string =
-  result = getEnv "PKEXEC_UID"
-  if result.len == 0:
-    result = getEnv "SUDO_UID"
-  if result.len == 0:
-    result = $getuid()
+  if getuid() == 0:
+    for env in ["PKEXEC_UID", "SUDO_UID"]:
+      result = getEnv env
+      if result.len != 0:
+        return
+
+  return $getuid()
 
 proc getOriginalHome(): string =
   let uid = Uid(parseUInt(getOriginalUid()))
@@ -555,7 +557,7 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     "podman", "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
     fmt"--name={capsule}-{uuid}", fmt"--workdir=/run/home/{cwdRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
-    fmt"--user={uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
+    fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
 
   podman.add capsuleJson.options.mapIt(string, "--" & it)
