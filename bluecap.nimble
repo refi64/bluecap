@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-version       = "0.1.0"
+version       = "0.3"
 author        = "Ryan Gonzalez"
 description   = "A new awesome nimble package"
 license       = "MPL-2.0"
@@ -17,8 +17,8 @@ requires "uuids"
 
 import options, ospaths, strformat, strutils
 
-when fileExists "build/config.nims":
-  include "build/config.nims"
+when fileExists "build/config.nim":
+  include "build/config.nim"
 
   proc install(perms: int, source, targetdir: string) =
     let command = ["install", "-Dm", $perms, source, targetdir / source.tailDir]
@@ -39,7 +39,7 @@ proc allFilesExist(files: varargs[string]): bool =
   return true
 
 task config, "configure the bluecap installation":
-  var prefix, bindir, datadir, sysconfdir: Option[string]
+  var prefix, bindir, datadir, sysconfdir, sharedstatedir: Option[string]
 
   for i in 2..paramCount():
     let param = paramStr i
@@ -55,6 +55,7 @@ task config, "configure the bluecap installation":
       of "bindir": bindir = some value
       of "datadir": datadir = some value
       of "sysconfdir": sysconfdir = some value
+      of "sharedstatedir": sharedstatedir = some value
       else: die fmt"Invalid key: {key}=..."
     else: die fmt"Invalid argument: {param}"
 
@@ -62,23 +63,27 @@ task config, "configure the bluecap installation":
   bindir.setIfNone prefix.get/"bin"
   datadir.setIfNone prefix.get/"share"
   sysconfdir.setIfNone "/etc"
+  sharedstatedir.setIfNone "/var/lib"
 
   echo "***** INSTALLATION CONFIG *****"
-  echo fmt"prefix     : {prefix.get}"
-  echo fmt"bindir     : {bindir.get}"
-  echo fmt"datadir    : {datadir.get}"
-  echo fmt"sysconfdir : {sysconfdir.get}"
+  echo fmt"version        : {version}"
+  echo fmt"prefix         : {prefix.get}"
+  echo fmt"bindir         : {bindir.get}"
+  echo fmt"datadir        : {datadir.get}"
+  echo fmt"sysconfdir     : {sysconfdir.get}"
+  echo fmt"sharedstatedir : {sharedstatedir.get}"
 
-  writeFile "build/config.nims", fmt"""
+  writeFile "build/config.nim", fmt"""
 # THIS FILE WAS GENERATED VIA 'nimble config'
 # DO NOT EDIT
 
 const
-  Config           = true
-  ConfigPrefix     = r"{prefix.get}"
-  ConfigBindir     = r"{bindir.get}"
-  ConfigDatadir    = r"{datadir.get}"
-  ConfigSysconfdir = r"{sysconfdir.get}"
+  Version              = "{version}"
+  Config               = true
+  ConfigBindir         = r"{bindir.get}"
+  ConfigDatadir        = r"{datadir.get}"
+  ConfigSysconfdir     = r"{sysconfdir.get}"
+  ConfigSharedstatedir = r"{sharedstatedir.get}"
 """
 
   let policy = readFile "data/com.refi64.Bluecap.policy.in"
