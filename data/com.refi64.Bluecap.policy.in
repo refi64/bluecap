@@ -13,8 +13,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-create</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-create</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.delete">
@@ -25,8 +25,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-delete</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-delete</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.export">
@@ -37,8 +37,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-export</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-export</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.modify">
@@ -49,8 +49,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-modify</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-options-modify</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.persistence">
@@ -61,8 +61,8 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-persistence</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-persistence</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.run">
@@ -73,31 +73,19 @@
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-run</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-run</annotate>
   </action>
 
   <action id="com.refi64.Bluecap.trust">
     <description>Trust a capsule</description>
-    <message>Authentication is required to trust a capsule</message>
+    <message>Authentication is required to trust or untrust a capsule</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-trust</annotate>
-  </action>
-
-  <action id="com.refi64.Bluecap.untrust">
-    <description>Trust a capsule</description>
-    <message>Authentication is required to untrust a capsule</message>
-    <defaults>
-      <allow_any>auth_admin</allow_any>
-      <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin</allow_active>
-    </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/bluecap</annotate>
-    <annotate key="org.freedesktop.policykit.exec.argv1">internal-untrust</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">${bindir}/bluecap</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">su-trust</annotate>
   </action>
 </policyconfig>

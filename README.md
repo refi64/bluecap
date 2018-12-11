@@ -45,6 +45,27 @@ curl -L "https://copr.fedorainfracloud.org/coprs/refi64/bluecap/repo/fedora-`lsb
 rpm-ostree install bluecap
 ```
 
+## Building from source
+
+Use `nimble config` to configure bluecap:
+
+```
+# Default prefix (/usr), bindir (/usr/bin), datadir (/usr/share), and sysconfdir (/etc).
+$ nimble config
+# Set the prefix (this will also set bindir=/usr/local/bin and datadir=/usr/local/share)
+$ nimble config destdir=my-build-directory prefix=/usr/local
+# All the others can be set in a similar manner
+```
+
+Then, run `nimble build` and `nimble sysinstall`:
+
+```
+$ nimble build
+$ nimble sysinstall
+# Install into a different destdir:
+$ nimble sysinstall my-custom-destdir
+```
+
 ## Examples
 
 **NOTE:** This is for the 0.3 alpha. For v0.2, see the README on that Git tag.

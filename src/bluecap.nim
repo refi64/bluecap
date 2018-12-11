@@ -87,13 +87,13 @@ type
     trusted: seq[string]
 
 
-proc die(s: string) =
+proc die(s: string) {.noreturn.} =
   stderr.writeLine s
   quit 1
 
-proc dieCapsuleRequired() = die "A capsule is required."
-proc dieInvalidOption(arg: string) = die "Invalid option: " & arg
-proc dieTooManyArgs() = die "Too many arguments."
+proc dieCapsuleRequired() {.noreturn.} = die "A capsule is required."
+proc dieInvalidOption(arg: string) {.noreturn.} = die "Invalid option: " & arg
+proc dieTooManyArgs() {.noreturn.} = die "Too many arguments."
 
 
 proc printWrapped(left, right: string) =
