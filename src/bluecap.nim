@@ -121,6 +121,19 @@ proc printWrapped(left, right: string) =
 
     echo ""
 
+template walkOpts(p: typed, actions: untyped) =
+  while p.kind != cmdEnd:
+    actions
+    p.next
+
+proc assignToFirstNone[T](value: T, args: varargs[ptr Option[T]]): bool =
+  for arg in args:
+    if arg[].isNone:
+      arg[] = some value
+      return true
+
+  return false
+
 proc writeFileAtomic(filename, content: string) =
   let atomicFilename = filename & ".atomic"
   writeFile atomicFilename, content
@@ -222,7 +235,7 @@ proc getPersistenceRoot(capsule: string): string =
 var commands = initOrderedTable[Action, Command]()
 
 proc showHelp() =
-  echo "bluecap [-? | -h | --help] COMMAND CAPSULE [ARGS...]"
+  echo "bluecap [-?|-h|--help] COMMAND CAPSULE [ARGS...]"
   echo ""
   echo "Commands:"
 
@@ -239,13 +252,12 @@ proc showHelp() =
   quit()
 
 proc makeCommand(action: Action, synop, help: string = "", call: proc (p: var OptParser)) =
-  let command = Command(synop: synop, help: help, call: call)
   commands[action] = Command(synop: synop, help: help, call: call)
 
 proc suAction(action: Action, args: openarray[string]) =
   if getuid() == 0:
     var p = initOptParser quoteShellCommand(args)
-    p.next()
+    p.next
     commands[action].call p
     quit()
   else:
@@ -261,19 +273,12 @@ makeCommand(Action.Create, "create ... IMAGE",
   var capsule: Option[string]
   var image: Option[string]
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      elif image.isNone:
-        image = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule, addr image):
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption: dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
+    else:
+      dieInvalidOption p.key
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -285,7 +290,7 @@ makeCommand(Action.Create, "create ... IMAGE",
 
 makeCommand(Action.SuCreate, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var image = p.key
 
   discard existsOrCreateDir GlobalCapsulesPath
@@ -304,21 +309,15 @@ makeCommand(Action.Delete, "delete [-k|--keep-persistence]",
   var capsule: Option[string]
   var keepPersistence = false
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule):
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption:
+    else:
       case p.key
       of "k", "keep-persistence":
         keepPersistence = true
       else: dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -328,7 +327,7 @@ makeCommand(Action.Delete, "delete [-k|--keep-persistence]",
 
 makeCommand(Action.SuDelete, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var keepPersistence = parseBool p.key
 
   if keepPersistence:
@@ -343,21 +342,15 @@ makeCommand(Action.Trust, "trust [-u|--untrust]",
   var capsule: Option[string]
   var untrust = false
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule)
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption:
+    elsE:
       case p.key
       of "u", "untrust":
         untrust = true
       else: dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -367,7 +360,7 @@ makeCommand(Action.Trust, "trust [-u|--untrust]",
 
 makeCommand(Action.SuTrust, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var untrust = parseBool p.key
   discard resolveCapsuleInfo(capsule, shouldExist = true)
 
@@ -396,21 +389,15 @@ makeCommand(Action.OptionsModify, "options-modify ... [-r|--remove] [OPTIONS...]
   var options: seq[string]
   var remove = false
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule):
         options.add p.key
-    of cmdLongOption, cmdShortOption:
+    else:
       case p.key
       of "r", "remove":
         remove = true
       else: dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -424,16 +411,15 @@ makeCommand(Action.OptionsModify, "options-modify ... [-r|--remove] [OPTIONS...]
 
 makeCommand(Action.SuOptionsModify, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var remove = parseBool p.key
-  p.next()
+  p.next
 
   var modOptions: seq[string]
 
-  while p.kind != cmdEnd:
+  p.walkOpts:
     assert p.kind == cmdArgument
     modOptions.add p.key
-    p.next()
 
   let capsuleInfo = resolveCapsuleInfo(capsule, shouldExist = true)
   var capsuleJson = parseFile(capsuleInfo.path).to CapsuleJson
@@ -445,17 +431,12 @@ makeCommand(Action.OptionsDump, "options-dump",
             "Dump the capsule's options") do (p: var OptParser):
   var capsule: Option[string]
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule):
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption: dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
+    else:
+      dieInvalidOption p.key
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -472,25 +453,17 @@ makeCommand(Action.Persistence,
   var remove = false
   var keepPersistence = false
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      elif directory.isNone:
-        directory = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule, addr directory):
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption:
+    else:
       case p.key
       of "r", "remove":
         remove = true
       of "k", "keep-persistence":
         keepPersistence = true
       else: dieInvalidOption(p.key)
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -506,11 +479,11 @@ makeCommand(Action.Persistence,
 
 makeCommand(Action.SuPersistence, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var directory = p.key
-  p.next()
+  p.next
   var remove = parseBool p.key
-  p.next()
+  p.next
   var keepPersistence = parseBool p.key
 
   assert directory.isAbsolute
@@ -565,9 +538,9 @@ makeCommand(Action.Run, "run ... [COMMAND...]",
 
 makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var cwd = p.key
-  p.next()
+  p.next
   var command = p.key
 
   let capsuleInfo = resolveCapsuleInfo(capsule, shouldExist = true)
@@ -603,21 +576,15 @@ makeCommand(Action.Export, "export ... [--as=NAME] COMMAND...",
   var command: seq[string]
   var name: Option[string]
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule):
         command.add p.key
-    of cmdLongOption, cmdShortOption:
+    else:
       case p.key
       of "as":
         name = some p.val
       else: dieInvalidOption(p.key)
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -632,9 +599,9 @@ makeCommand(Action.Export, "export ... [--as=NAME] COMMAND...",
 
 makeCommand(Action.SuExport, "", "") do (p: var OptParser):
   var capsule = p.key
-  p.next()
+  p.next
   var name = p.key
-  p.next()
+  p.next
   var command = p.key
 
   let path = GlobalExportsBinPath / name
@@ -651,20 +618,12 @@ makeCommand(Action.Link, "link ... [DIRECTORY]",
   var capsule: Option[string]
   var directory: Option[string]
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
-      if capsule.isNone:
-        capsule = some p.key
-      elif directory.isNone:
-        directory = some p.key
-      else:
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule, addr directory):
         dieTooManyArgs()
-    of cmdLongOption, cmdShortOption:
+    else:
       dieInvalidOption p.key
-    of cmdEnd: assert false
-
-    p.next()
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -683,11 +642,10 @@ proc main() =
   var action: Option[Action]
   var p = initOptParser()
 
-  p.next()
+  p.next
 
-  while p.kind != cmdEnd:
-    case p.kind
-    of cmdArgument:
+  p.walkOpts:
+    if p.kind == cmdArgument:
       if p.key.startsWith "run-exported-internal:":
         runExportedInternal()
 
@@ -701,17 +659,16 @@ proc main() =
           die "Invalid command: " & p.key
 
         # We have the action, now we can pass the OptParser along to the command.
-        p.next()
+        p.next
         break
-    of cmdLongOption, cmdShortOption:
+    else:
       case p.key
       of "help", "h", "?":
         showHelp()
       else:
         dieInvalidOption p.key
-    of cmdEnd: assert false
 
-    p.next()
+    p.next
 
   if action.isNone:
     die "A command is required."
