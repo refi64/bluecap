@@ -7,6 +7,7 @@
 
 
 import
+  logging,
   json,
   nre,
   os,
@@ -63,7 +64,7 @@ type
     Create, Delete, Trust, OptionsModify, OptionsDump, Persistence, Run, Export,
     SuCreate, SuDelete, SuTrust, SuOptionsModify, SuPersistence, SuRun, SuExport, Link
 
-  AvailableCapsuleInfo = object
+  CapsuleInfo = object
     name: string
     path: string
 
@@ -85,6 +86,14 @@ type
 
   TrustedJson = object
     trusted: seq[string]
+
+
+const
+  PolkitVerboseArg = "--bluecap-polkit-verbose"
+
+
+var
+  gVerbose = false
 
 
 proc die(s: string) {.noreturn.} =
@@ -123,6 +132,7 @@ proc printWrapped(left, right: string) =
 
 template walkOpts(p: typed, actions: untyped) =
   while p.kind != cmdEnd:
+    debug fmt"walkOpts: kind = {p.kind}, key = {p.key}, val = {p.val}"
     actions
     p.next
 
@@ -175,6 +185,9 @@ proc existsOrCreateDirWithParents(path: string): bool =
 proc replaceProcess(command: string, args: seq[string]) =
   var args2 = @[command]
   args2.add args
+
+  debug "Going to execvp: " & quoteShellCommand(args2)
+
   discard execvp(command, allocCStringArray(args2))
   die fmt"execvp failed: {strerror(errno)}"
 
@@ -183,7 +196,10 @@ proc getOriginalUid(): string =
     for env in ["PKEXEC_UID", "SUDO_UID"]:
       result = getEnv env
       if result.len != 0:
+        debug fmt"Got original UID {result} from {env}"
         return
+
+    debug "Running as UID 0, but could not find an original UID"
 
   return $getuid()
 
@@ -193,7 +209,8 @@ proc getOriginalHome(): string =
     return getHomeDir()
 
   let passwd = getpwuid uid
-  return $passwd.pw_dir
+  result = $passwd.pw_dir
+  debug "UID is not the same, original home dir: " & result
 
 proc removePathPrefix(path, prefix: string): string =
   assert path.startsWith prefix
@@ -204,11 +221,12 @@ proc removePathPrefix(path, prefix: string): string =
 proc checkUnderHome(dir, home: string): string {.discardable.} =
   var resolvedHome = expandFilename home
   if not dir.startsWith resolvedHome:
+    debug fmt"checkUnderHome: resolvedHome = {resolvedHome}, dir = {dir}"
     die "Current directory is not under your home directory."
 
   return removePathPrefix(dir, resolvedHome)
 
-proc resolveCapsuleInfo(name: string, shouldExist: bool): AvailableCapsuleInfo =
+proc resolveCapsuleInfo(name: string, shouldExist: bool): CapsuleInfo =
   if name == ".":
     for parent in parentDirs getCurrentDir():
       let default = parent / ".bluecap" / "default.json"
@@ -237,7 +255,7 @@ proc getPersistenceRoot(capsule: string): string =
 var commands = initOrderedTable[Action, Command]()
 
 proc showHelp() =
-  echo "bluecap [-?|-h|--help] COMMAND CAPSULE [ARGS...]"
+  echo "bluecap [-?|-h|--help] [-v|--verbose] COMMAND CAPSULE [ARGS...]"
   echo ""
   echo "Commands:"
 
@@ -267,6 +285,8 @@ proc suAction(action: Action, args: openarray[string]) =
     pkArgs.add getAppFilename()
     pkArgs.add camelToDash($action)
     pkArgs.add args
+    if gVerbose:
+      pkArgs.add PolkitVerboseArg
 
     replaceProcess("pkexec", args = pkArgs)
 
@@ -528,7 +548,12 @@ proc runExportedInternal() =
 makeCommand(Action.Run, "run ... [COMMAND...]",
             "Run a command within a capsule") do (p: var OptParser):
   # HACK: to get the unadultered arguments, just go straight to commandLineParams
-  var params = commandLineParams()[1..^1]
+  var params = commandLineParams()[0..^1]
+  for i, param in params:
+    if param == "run":
+      params[0..^1] = params[i+1..^1]
+      break
+
   if params.len == 0:
     dieCapsuleRequired()
   elif params.len == 1:
@@ -553,22 +578,20 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   let home = getOriginalHome()
   let cwdRelative = checkUnderHome(cwd, home)
 
-  var podman = @[
-    "podman", "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
+  var args = @[
+    "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
     fmt"--name={capsule}-{uuid}", fmt"--workdir=/run/home/{cwdRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
     fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
 
-  podman.add capsuleJson.options.mapIt(string, "--" & it)
-  podman.add capsuleJson.persistence.mapIt(string, fmt"--volume={persistenceRoot / it}:{it}")
+  args.add capsuleJson.options.mapIt(string, "--" & it)
+  args.add capsuleJson.persistence.mapIt(string, fmt"--volume={persistenceRoot / it}:{it}")
 
-  podman.add capsuleJson.image
-  podman.add parseCmdLine(command)
+  args.add capsuleJson.image
+  args.add parseCmdLine(command)
 
-  echo quoteShellCommand(podman)
-  discard execvp("podman", allocCStringArray(podman))
-  die fmt"execvp failed: {strerror(errno)}"
+  replaceProcess("podman", args = args)
 
 makeCommand(Action.Export, "export ... [--as=NAME] COMMAND...",
             "Export a command from the capsule") do (p: var OptParser):
@@ -638,10 +661,24 @@ makeCommand(Action.Link, "link ... [DIRECTORY]",
   removeFile target
   createSymlink capsuleInfo.path, target
 
+proc enableVerbose() =
+  if gVerbose:
+    return
+
+  gVerbose = true
+  addHandler newConsoleLogger()
+
 proc main() =
   var action: Option[Action]
-  var p = initOptParser()
 
+  var params = commandLineParams()
+  if params[^1] == PolkitVerboseArg:
+    enableVerbose()
+    discard params.pop
+  elif getEnv("BLUECAP_VERBOSE").len != 0:
+    enableVerbose()
+
+  var p = initOptParser(quoteShellCommand(params))
   p.next
 
   p.walkOpts:
@@ -665,10 +702,10 @@ proc main() =
       case p.key
       of "help", "h", "?":
         showHelp()
+      of "verbose", "v":
+        enableVerbose()
       else:
         dieInvalidOption p.key
-
-    p.next
 
   if action.isNone:
     die "A command is required."
