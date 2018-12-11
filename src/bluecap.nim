@@ -46,7 +46,7 @@ var TRUSTED = <TRUSTED>
 polkit.addRule(function (action, subject) {
     if (action.id == 'com.refi64.Bluecap.run') {
         var cmdline = action.lookup('command_line')
-        var capsule = cmdline.match(/internal-run (\S+)/)[1]
+        var capsule = cmdline.match(/su-run (\S+)/)[1]
         polkit.log('bluecap:' + capsule)
         if (!capsule.match(/<REGEX>/))
             return polkit.Result.NO
@@ -210,7 +210,7 @@ proc resolveCapsuleInfo(name: string, shouldExist: bool): AvailableCapsuleInfo =
   if name == ".":
     for parent in parentDirs getCurrentDir():
       let default = parent / ".bluecap" / "default.json"
-      if existsFile default:
+      if fileExists default:
         result.path = expandSymlink default
         result.name = splitFile(result.path)[1]
         break
@@ -224,9 +224,9 @@ proc resolveCapsuleInfo(name: string, shouldExist: bool): AvailableCapsuleInfo =
   if not result.name.contains re(CapsuleRegex):
     die fmt"Invalid capsule name: {result.name}"
 
-  if shouldExist and not existsFile result.path:
+  if shouldExist and not fileExists result.path:
     die fmt"Capsule {name} does not exist."
-  elif not shouldExist and existsFile result.path:
+  elif not shouldExist and fileExists result.path:
     die fmt"Capsule {name} already exists."
 
 proc getPersistenceRoot(capsule: string): string =
@@ -295,7 +295,7 @@ makeCommand(Action.SuCreate, "", "") do (p: var OptParser):
 
   discard existsOrCreateDir GlobalCapsulesPath
 
-  if not existsFile EtcDefaultsJsonPath:
+  if not fileExists EtcDefaultsJsonPath:
     die fmt"{EtcDefaultsJsonPath} must exist!"
 
   let defaultsJson = parseFile(EtcDefaultsJsonPath).to DefaultsJson
@@ -344,7 +344,7 @@ makeCommand(Action.Trust, "trust [-u|--untrust]",
 
   p.walkOpts:
     if p.kind == cmdArgument:
-      if not assignToFirstNone(p.key, addr capsule)
+      if not assignToFirstNone(p.key, addr capsule):
         dieTooManyArgs()
     elsE:
       case p.key
@@ -364,10 +364,8 @@ makeCommand(Action.SuTrust, "", "") do (p: var OptParser):
   var untrust = parseBool p.key
   discard resolveCapsuleInfo(capsule, shouldExist = true)
 
-  var trusted = initSet[string]()
-
   var trustedJson: TrustedJson
-  if existsFile GlobalPolkitTrustedPath:
+  if fileExists GlobalPolkitTrustedPath:
     trustedJson = parseFile(GlobalPolkitTrustedPath).to TrustedJson
 
   trustedJson.trusted = mergeUnsorted(trustedJson.trusted, @[capsule], untrust)
@@ -376,7 +374,7 @@ makeCommand(Action.SuTrust, "", "") do (p: var OptParser):
   # We use an object where trusted keys have a true value for the polkit JS.
 
   let trustedJsObjectNode = newJObject()
-  for trustedCapsule in trusted.items:
+  for trustedCapsule in trustedJson.trusted:
     trustedJsObjectNode.add trustedCapsule, newJBool(true)
 
   let trustedJsString = pretty trustedJsObjectNode
@@ -605,7 +603,7 @@ makeCommand(Action.SuExport, "", "") do (p: var OptParser):
   var command = p.key
 
   let path = GlobalExportsBinPath / name
-  if existsFile path:
+  if fileExists path:
     die fmt"Export at {path} already exists (try passing --as with a different name)"
 
   writeFileAtomic path, fmt"#!{getAppFilename()} run-exported-internal:{capsule}" & "\n" &
