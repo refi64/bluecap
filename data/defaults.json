@@ -1,8 +1,4 @@
 {
   "options": [
-    "attach=stdin",
-    "attach=stdout",
-    "attach=stderr",
-    "tty"
   ]
 }
