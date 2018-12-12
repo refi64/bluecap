@@ -619,7 +619,7 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
     fmt"--name={capsule}-{uniq}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
-    fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
+    fmt"--user={uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
 
   if capsule.startsWith '@':
@@ -636,6 +636,8 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     args.add capsuleJson.persistence.mapIt(string, fmt"--volume={persistenceRoot / it}:{it}")
 
     args.add capsuleJson.image
+
+  args.add @["sh", "-l", "-c", "exec \"$@\"", "--"]
   args.add parseCmdLine(command)
 
   replaceProcess("podman", args = args)
