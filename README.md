@@ -105,3 +105,65 @@ $ bluecap delete dart
 # Delete the capsule, but keep its persisted files (/var/lib/bluecap/persistence/CAPSULE-NAME)
 $ bluecap delete -k dart
 ```
+
+## Upgrading from bluecap 0.2 to 0.3
+
+bluecap 0.3 with a large amount of internal changes, largely due to a rewrite in Nim, which
+resulted in drastically increased speed. However, as a side effect of this, you may have to
+make some modifications to your capsules.
+
+Hopefully, a major change like this won't come again, but it was overdue in a large number of
+ways.
+
+### Persistence
+
+After upgrading, you will probably get the following error when running your capsules:
+
+```
+Error: unhandled exception: key not found: persistence [KeyError]
+```
+
+This is due to a change in the way they are stored. To update the capsule files, run:
+
+```
+sudo sed -si '/"image": /a"persistence": [],' /var/lib/bluecap/capsules/*.json
+```
+
+In addition:
+
+- The in-capsule home directory has been changed to `/var/data`, instead of `/home/cappy`.
+  You can change this via:
+
+  ```
+  sudo sed -si 's|/home/cappy|/var/data' /var/lib/bluecap/capsules/*.json
+  ```
+
+  If you want to preserve your old data, also run:
+
+  ```
+  sudo find /var/lib/bluecap/persistence -maxdepth 1 -mindepth 1 -exec bash -O dotglob -ec 'if [ -d $1/home/cappy ]; then mkdir -p $1/var/data; mv $1/home/cappy/* $1/var/data; fi' -- '{}' \;
+  ```
+
+- You won't be able to remove old persistence directories via `bluecap persistence -r`, due to
+  a change in the format. Instead, manually remove the `volume=` option that was added via
+  `bluecap options-modify -r` (you can find the option via `bluecap options-dump`).
+
+### Trusted capsules
+
+Upon upgrade, all your trusted capsules will become untrusted. To fix this, run:
+
+```
+sudo mv /var/lib/bluecap/polkit-{list,trusted}.json
+sudo sed -i 's/internal-run/su-run/' /etc/polkit-1/rules.d/49-bluecap.rules
+```
+
+If your capsules are still untrusted, you may need to restart polkit:
+
+```
+sudo systemctl restart polkit
+```
+
+## Exports
+
+You'll need to change any references to `/home/cappy` in your exports by editing them manually
+(located in `/var/lib/bluecap/exports`).
