@@ -227,7 +227,7 @@ proc checkUnderHome(dir, home: string): string {.discardable.} =
   var resolvedHome = expandFilename home
   if not dir.startsWith resolvedHome:
     debug fmt"checkUnderHome: resolvedHome = {resolvedHome}, dir = {dir}"
-    die "Current directory is not under your home directory."
+    die fmt"Working directory {dir} is not under your home directory."
 
   return removePathPrefix(dir, resolvedHome)
 
@@ -536,15 +536,14 @@ makeCommand(Action.SuPersistence, "", "") do (p: var OptParser):
   if remove and not keepPersistence:
     removeDir getPersistenceRoot(capsule) / directory
 
-proc runCapsule(capsule, command: string) =
-  let cwd = getCurrentDir()
-  checkUnderHome cwd, getOriginalHome()
+proc runCapsule(capsule, workdir, command: string) =
+  checkUnderHome workdir, getOriginalHome()
 
   let capsuleInfo =
     # Directly run an image.
     if capsule.startsWith '@': CapsuleInfo(name: capsule, path: "")
     else: resolveCapsuleInfo(capsule, shouldExist = true)
-  suAction Action.SuRun, @[capsuleInfo.name, cwd, command]
+  suAction Action.SuRun, @[capsuleInfo.name, workdir, command]
 
 proc runExportedInternal() =
   let params = commandLineParams()
@@ -556,28 +555,47 @@ proc runExportedInternal() =
   var commandSeq = parseCmdLine(sequtils.toSeq(readFile(file).splitLines)[1])
   commandSeq.add params[2..^1]
 
-  runCapsule capsule, quoteShellCommand(commandSeq)
+  runCapsule capsule, getCurrentDir(), quoteShellCommand(commandSeq)
 
-makeCommand(Action.Run, "run ... [COMMAND...]",
+makeCommand(Action.Run, "run ... [-w|--workdir WORKDIR] [COMMAND...]",
             "Run a command within a capsule") do (p: var OptParser):
+  var capsule: Option[string]
+  var workdir = getCurrentDir()
+
+  p.walkOpts:
+    if p.kind == cmdArgument:
+      if not assignToFirstNone(p.key, addr capsule):
+        break
+    else:
+      case p.key
+      of "w", "workdir":
+        if p.val.len == 0:
+          die "-w/--workdir requires an argument."
+        if not dirExists p.val:
+          die fmt"Non-existent working directory: {p.val}"
+        workdir = expandFilename p.val
+      else: dieInvalidOption()
+
+  if capsule.isNone:
+    dieCapsuleRequired()
+
   # HACK: to get the unadultered arguments, just go straight to commandLineParams
   var params = commandLineParams()[0..^1]
+  params[0..^1] = params[params.find("run")+1..^1]
   for i, param in params:
-    if param == "run":
-      params[0..^1] = params[i+1..^1]
+    if not param.startsWith('-') and param != capsule.get:
+      params[0..^1] = params[i..^1]
       break
 
   if params.len == 0:
-    dieCapsuleRequired()
-  elif params.len == 1:
     die "A command is required."
 
-  runCapsule params[0], quoteShellCommand(params[1..^1])
+  runCapsule capsule.get, workdir, quoteShellCommand(params)
 
 makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   var capsule = p.key
   p.next
-  var cwd = p.key
+  var workdir = p.key
   p.next
   var command = p.key
 
@@ -586,11 +604,11 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   let uuid = ($genUUID())[0..7]
   let uid = getOriginalUid()
   let home = getOriginalHome()
-  let cwdRelative = checkUnderHome(cwd, home)
+  let workdirRelative = checkUnderHome(workdir, home)
 
   var args = @[
     "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
-    fmt"--name={capsule}-{uuid}", fmt"--workdir=/run/home/{cwdRelative}", "--rm",
+    fmt"--name={capsule}-{uuid}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
     fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
