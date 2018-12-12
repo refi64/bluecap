@@ -723,7 +723,7 @@ proc main() =
   var action: Option[Action]
 
   var params = commandLineParams()
-  if params[^1] == PolkitVerboseArg:
+  if params.len != 0 and params[^1] == PolkitVerboseArg:
     enableVerbose()
     discard params.pop
   elif getEnv("BLUECAP_VERBOSE").len != 0:
