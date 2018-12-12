@@ -12,7 +12,6 @@ binDir        = "build"
 
 
 requires "nim >= 0.19.0"
-requires "uuids"
 
 
 import options, ospaths, strformat, strutils
@@ -72,6 +71,8 @@ task config, "configure the bluecap installation":
   echo fmt"datadir        : {datadir.get}"
   echo fmt"sysconfdir     : {sysconfdir.get}"
   echo fmt"sharedstatedir : {sharedstatedir.get}"
+
+  mkDir "build"
 
   writeFile "build/config.nim", fmt"""
 # THIS FILE WAS GENERATED VIA 'nimble config'

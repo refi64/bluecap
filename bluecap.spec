@@ -1,12 +1,11 @@
 Name:           bluecap
 Version:        0.3
-#Version:        master
 Release:        1%{?dist}
 Summary:        A lightweight wrapper over podman for container workflows
 
 License:        MPLv2.0
 URL:            https://github.com/kirbyfan64/%{name}
-Source0:        https://github.com/kirbyfan64/%{name}/archive/v%{version}.tar.gz#/%{name}-v%{version}.tar.gz
+Source0:        https://github.com/kirbyfan64/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 BuildRequires: nim >= 0.19.0
 Requires:      podman
@@ -23,12 +22,11 @@ container-based workflows.
 %autosetup
 
 %build
+nimble config bindir=%{_bindir} datadir=%{_datadir} sysconfdir=%{_sysconfdir}
 nimble build
 
 %install
-
-nimble config destdir=%{buildroot} bindir=%{_bindir} datadir=%{_datadir} sysconfdir=%{_sysconfdir}
-nimble sysinstall
+nimble sysinstall %{buildroot}
 
 %files
 %license LICENSE

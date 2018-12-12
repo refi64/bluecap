@@ -16,15 +16,17 @@ import
   options,
   parseopt,
   posix,
+  random,
   sets,
   sequtils,
+  std/sha1,
   streams,
   strformat,
   strutils,
   tables,
   terminal,
-  typetraits,
-  uuids
+  times,
+  typetraits
 
 
 when not fileExists "build/config.nim":
@@ -170,6 +172,11 @@ proc parseDashEnum[T: enum](s: string): T =
 
   raise newException(InvalidEnumValue, s)
 
+proc uniqueValue(): string =
+  # A "good-enough" unique value generator for container names.
+  let salt = rand(high(int) div 2) + high(int) div 2
+  return ($secureHash($getTime().utc & $salt))[0..7].toLower
+
 proc mergeUnsorted[T](a: openarray[T], b: openarray[T], inverse: bool = false): seq[T] =
   var s = initSet[T]()
   s.incl a.toSet
@@ -279,9 +286,10 @@ proc showHelp() =
 proc makeCommand(action: Action, synop, help: string = "", call: proc (p: var OptParser)) =
   commands[action] = Command(synop: synop, help: help, call: call)
 
-proc suAction(action: Action, args: openarray[string]) =
+proc suAction(action: Action, args: seq[string]) =
   if getuid() == 0:
-    var p = initOptParser quoteShellCommand(args)
+    debug fmt"suAction already root: {action} {quoteShellCommand(args)}"
+    var p = initOptParser args
     p.next
     commands[action].call p
     quit()
@@ -543,6 +551,7 @@ proc runCapsule(capsule, workdir, command: string) =
     # Directly run an image.
     if capsule.startsWith '@': CapsuleInfo(name: capsule, path: "")
     else: resolveCapsuleInfo(capsule, shouldExist = true)
+  debug fmt"runCapsule: capsule = {capsuleInfo.name}, workdir = {workdir}, command = {command}"
   suAction Action.SuRun, @[capsuleInfo.name, workdir, command]
 
 proc runExportedInternal() =
@@ -574,7 +583,7 @@ makeCommand(Action.Run, "run ... [-w|--workdir WORKDIR] [COMMAND...]",
         if not dirExists p.val:
           die fmt"Non-existent working directory: {p.val}"
         workdir = expandFilename p.val
-      else: dieInvalidOption()
+      else: dieInvalidOption(p.key)
 
   if capsule.isNone:
     dieCapsuleRequired()
@@ -601,14 +610,14 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
 
   let persistenceRoot = getPersistenceRoot capsule
 
-  let uuid = ($genUUID())[0..7]
+  let uniq = uniqueValue()
   let uid = getOriginalUid()
   let home = getOriginalHome()
   let workdirRelative = checkUnderHome(workdir, home)
 
   var args = @[
     "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
-    fmt"--name={capsule}-{uuid}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
+    fmt"--name={capsule}-{uniq}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
     fmt"--user={uid}:{uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
   ]
@@ -707,6 +716,8 @@ proc enableVerbose() =
   addHandler newConsoleLogger()
 
 proc main() =
+  randomize()
+
   var action: Option[Action]
 
   var params = commandLineParams()
@@ -716,7 +727,7 @@ proc main() =
   elif getEnv("BLUECAP_VERBOSE").len != 0:
     enableVerbose()
 
-  var p = initOptParser(quoteShellCommand(params))
+  var p = initOptParser params
   p.next
 
   p.walkOpts:
