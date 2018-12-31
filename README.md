@@ -115,6 +115,17 @@ make some modifications to your capsules.
 Hopefully, a major change like this won't come again, but it was overdue in a large number of
 ways.
 
+### Moved data storage directory
+
+Originally, persisted data was stored in `/var/lib/bluecap/persistence`. However, that has been
+moved to `$XDG_DATA_HOME/bluecap/persistence`. To move your data as well, run:
+
+```
+$ mkdir -p ${XDG_DATA_HOME:-$HOME/.local/share}/bluecap/persistence
+$ mv /var/lib/bluecap/persistence/* ${XDG_DATA_HOME:-$HOME/.local/share}/bluecap/persistence
+$ sudo chown -R $USER:$USER ${XDG_DATA_HOME:-$HOME/.local/share}/bluecap/persistence
+```
+
 ### Persistence
 
 After upgrading, you will probably get the following error when running your capsules:
