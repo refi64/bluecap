@@ -611,14 +611,19 @@ makeCommand(Action.Run, "run ... [-w|--workdir WORKDIR] [COMMAND...]",
 
   # This hack influences several other parts of the code; for instance, suAction must
   # always use pkexec even if the user is already is already root.
-  var params = commandLineParams()[0..^1]
+  var
+    params = commandLineParams()[0..^1]
+    passedCapsule = false
   params[0..^1] = params[params.find("run")+1..^1]
   for i, param in params:
-    if not param.startsWith('-') and param != capsule.get:
-      params[0..^1] = params[i..^1]
-      break
+    if not param.startsWith('-'):
+      if passedCapsule:
+        params[0..^1] = params[i..^1]
+        break
+      else:
+        passedCapsule = true
 
-  if params.len == 0:
+  if params.len == 0 or not passedCapsule:
     die "A command is required."
 
   runCapsule capsule.get, workdir, params
@@ -645,7 +650,7 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
     fmt"--name={capsule}-{uniq}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
-    fmt"--user={uid}", "--env=HOME=/var/data", "--tmpfs=/var/data"
+    fmt"--user={uid}", "--env=HOME=/var/data", "--tmpfs=/var/data", "--entrypoint=sh"
   ]
 
   if capsule.startsWith '@':
@@ -663,7 +668,7 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
 
     args.add capsuleJson.image
 
-  args.add @["sh", "-l", "-c", "exec \"$@\"", "--"]
+  args.add @["-l", "-c", "exec \"$@\"", command[0]]
   args.add command
 
   replaceProcess("podman", args = args)
