@@ -36,7 +36,7 @@ include ../build/config
 
 
 const
-  PolkitVerboseArg = "--bluecap-polkit-verbose"
+  InternalVerboseArg = "--bluecap-internal-verbose"
 
   CapsuleRegex = r"^[0-9a-zA-Z_.\-]+$"
 
@@ -79,6 +79,7 @@ type
   CapsuleInfo = object
     name: string
     path: string
+    rootless: bool
 
   Command = object
     synop: string
@@ -102,6 +103,7 @@ type
 
 var
   gVerbose = false
+  gRootless = false
 
 
 proc die(s: string) {.noreturn.} =
@@ -256,6 +258,8 @@ proc resolveCapsuleInfo(name: string, shouldExist: bool): CapsuleInfo =
     result.name = name
     result.path = (GlobalCapsulesPath / name) & ".json"
 
+  result.rootless = not result.path.startsWith GlobalCapsulesPath
+
   if not result.name.contains re(CapsuleRegex):
     die fmt"Invalid capsule name: {result.name}"
 
@@ -266,6 +270,7 @@ proc resolveCapsuleInfo(name: string, shouldExist: bool): CapsuleInfo =
 
 proc getPersistenceRoot(capsule: string): string =
   let uid = parseUInt(getOriginalUid())
+  debug fmt"Original uid: {uid}"
   let base =
     if uid == 0:
       GlobalPersistencePath
@@ -298,27 +303,37 @@ proc makeCommand(action: Action, synop, help: string = "", call: proc (p: var Op
 proc suAction(action: Action, args: seq[string]) =
   # HACK: See comment in Action.Run's command handler.
   if getuid() == 0 and action != Action.SuRun:
-    debug fmt"suAction already root: {action} {quoteShellCommand(args)}"
+    debug fmt"suAction skipping pkexec: {action} {quoteShellCommand(args)}"
     var p = initOptParser args
     p.next
     commands[action].call p
     quit()
   else:
-    var pkArgs = newSeqOfCap[string] args.len + 2
-    pkArgs.add getAppFilename()
-    pkArgs.add camelToDash($action)
-    pkArgs.add args
+    if gRootless:
+      putEnv "BLUECAP_ROOTLESS", "1"
+
+    var runArgs = newSeqOfCap[string] args.len + 2
+
+    # Don't actually use pkexec if gRootless
+    if not gRootless:
+      runArgs.add getAppFilename()
+
+    runArgs.add camelToDash($action)
+    runArgs.add args
     if gVerbose:
-      pkArgs.add PolkitVerboseArg
+      runArgs.add InternalVerboseArg
 
     if action == Action.SuRun and getuid() == 0:
       # HACK: see above
       let sudoUid = getEnv "SUDO_UID"
       if sudoUid.len > 0:
-        pkArgs.insert "env"
-        pkArgs.insert fmt"SUDO_UID={sudoUid}", 1
+        runArgs.insert "env"
+        runArgs.insert fmt"SUDO_UID={sudoUid}", 1
 
-    replaceProcess("pkexec", args = pkArgs)
+    if gRootless:
+      replaceProcess(getAppFilename(), args = runArgs)
+    else:
+      replaceProcess("pkexec", args = runArgs)
 
 makeCommand(Action.Version, "version", "Show bluecap version and config") do (p: var OptParser):
   echo fmt"bluecap {Version}"
@@ -631,7 +646,7 @@ makeCommand(Action.Run, "run ... [-w|--workdir WORKDIR] [COMMAND...]",
 makeCommand(Action.SuRun, "", "") do (p: var OptParser):
   # HACK: see above comment in Action.Run's command
   var params = commandLineParams()[1..^1]
-  if params[^1] == PolkitVerboseArg:
+  if params[^1] == InternalVerboseArg:
     discard params.pop
   debug fmt"su-run: {params}"
 
@@ -650,8 +665,14 @@ makeCommand(Action.SuRun, "", "") do (p: var OptParser):
     "run", "--security-opt=label=disable", fmt"--volume={home}:/run/home",
     fmt"--name={capsule}-{uniq}", fmt"--workdir=/run/home/{workdirRelative}", "--rm",
     "--attach=stdin", "--attach=stdout", "--attach=stderr", "--tty",
-    fmt"--user={uid}", "--env=HOME=/var/data", "--tmpfs=/var/data", "--entrypoint=sh"
+    "--env=HOME=/var/data", "--tmpfs=/var/data", "--entrypoint=sh"
   ]
+
+  if gVerbose:
+    args.insert "--log-level=debug"
+
+  if not gRootless:
+    args.add fmt"--user={uid}"
 
   if capsule.startsWith '@':
     # Directly run an image.
@@ -748,17 +769,23 @@ proc enableVerbose() =
   gVerbose = true
   addHandler newConsoleLogger()
 
+proc enableRootless() =
+  gRootless = true
+
 proc main() =
   randomize()
 
   var action: Option[Action]
 
   var params = commandLineParams()
-  if params.len != 0 and params[^1] == PolkitVerboseArg:
+  if params.len != 0 and params[^1] == InternalVerboseArg:
     enableVerbose()
     discard params.pop
   elif getEnv("BLUECAP_VERBOSE").len != 0:
     enableVerbose()
+
+  if getEnv("BLUECAP_ROOTLESS").len != 0:
+    enableRootless()
 
   var p = initOptParser params
   p.next
@@ -786,6 +813,8 @@ proc main() =
         showHelp()
       of "verbose", "v":
         enableVerbose()
+      of "rootless", "r":
+        enableRootless()
       else:
         dieInvalidOption p.key
 
